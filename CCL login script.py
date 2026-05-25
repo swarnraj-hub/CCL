@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Currency Cloud Direct - Login only
+Currency Cloud Direct - Login
 Usage: python ccl_login.py
 """
 
@@ -20,8 +20,9 @@ if _ENV_FILE.exists():
             _k, _v = _line.split("=", 1)
             os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
 
-USERNAME = os.environ.get("CCL_USERNAME", "anubhavjain@tazapay.com")
-PASSWORD = os.environ.get("CCL_PASSWORD", "Currencycloud@2026")
+USERNAME  = os.environ.get("CCL_USERNAME", "")
+PASSWORD  = os.environ.get("CCL_PASSWORD", "")
+IS_CI     = os.environ.get("CI", "false").lower() == "true"
 LOGIN_URL = "https://direct.currencycloud.com/login"
 
 STEALTH_SCRIPT = """
@@ -58,14 +59,14 @@ async def login(page) -> bool:
     await dismiss_cookie_banner(page)
     await ss(page, "01_login_page")
 
-    # Step 1: Login ID
+    # Step 1: Login ID -> Next
     await page.locator('input[placeholder="Type your login ID"]').fill(USERNAME)
     await page.locator('button:has-text("Next")').click()
     await page.wait_for_timeout(2_500)
     await ss(page, "02_after_next")
     print(f"[login] URL: {page.url}")
 
-    # Step 2: Password
+    # Step 2: Password -> Login
     await page.locator('input[type="password"]').fill(PASSWORD)
     await page.locator('button:has-text("Login")').click()
     await page.wait_for_timeout(3_000)
@@ -96,8 +97,8 @@ async def login(page) -> bool:
 async def main():
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(
-            headless=False,
-            slow_mo=80,
+            headless=IS_CI,
+            slow_mo=0 if IS_CI else 80,
             args=["--no-sandbox", "--disable-blink-features=AutomationControlled"],
         )
         context = await browser.new_context(
@@ -112,7 +113,8 @@ async def main():
         success = await login(page)
         if success:
             print("[+] Login successful")
-            input("Press Enter to close browser ...")
+            if not IS_CI:
+                input("Press Enter to close browser ...")
         else:
             print("[!] Login failed")
 

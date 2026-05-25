@@ -1,0 +1,76 @@
+name: CCL Export
+
+on:
+  schedule:
+    - cron: "0 3 * * *"   # Every day at 03:00 UTC (08:30 IST)
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: "Start date (YYYY-MM-DD)"
+        required: false
+        default: ""
+      end_date:
+        description: "End date (YYYY-MM-DD)"
+        required: false
+        default: ""
+
+jobs:
+  ccl-export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      CCL_USERNAME:          ${{ secrets.CCL_USERNAME }}
+      CCL_PASSWORD:          ${{ secrets.CCL_PASSWORD }}
+      CCL_OTP_CODE:          ${{ secrets.CCL_OTP_CODE }}
+      SLACK_BOT_TOKEN:       ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_USER_ID:         ${{ secrets.SLACK_USER_ID }}
+      AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION:    ap-southeast-1
+      S3_ENABLED:            "true"
+      S3_BUCKET:             payout-recon
+      CI:                    "true"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright boto3 botocore requests
+
+      - name: Install Chromium
+        run: playwright install chromium --with-deps
+
+      - name: Run CCL export
+        run: |
+          START=${{ github.event.inputs.start_date }}
+          END=${{ github.event.inputs.end_date }}
+          if [ -n "$START" ] && [ -n "$END" ]; then
+            python ccl_export.py --start_date "$START" --end_date "$END"
+          else
+            python ccl_export.py
+          fi
+
+      - name: Upload CSV files as artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ccl-csv-${{ github.run_id }}
+          path: downloads/CCL_*.csv
+          retention-days: 30
+
+      - name: Upload debug screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ccl-debug-${{ github.run_id }}
+          path: ccl_dbg_*.png
+          retention-days: 7

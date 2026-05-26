@@ -78,8 +78,8 @@ S3_REGION  = os.environ.get("AWS_DEFAULT_REGION", "ap-southeast-1")
 DOWNLOAD_DIR = Path("downloads")
 LOGIN_URL    = "https://direct.currencycloud.com/login"
 
-# Bot DM channel: cclautomationbot -> anubhavjain@tazapay.com
-CCL_NOTIFY_CHANNEL = "D0B63FWCUCC"
+# DM recipient — driven by SLACK_USER_ID secret (Member ID like U09A8J8QAEP)
+CCL_NOTIFY_CHANNEL = SLACK_USER_ID
 
 STEALTH_SCRIPT = """
 Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
@@ -97,8 +97,8 @@ USER_AGENT = (
 # Slack helpers
 # ---------------------------------------------------------------------------
 def notify_slack_ccl(message: str):
-    """Send a plain-text DM to the CCL notification channel (2FA prompts etc.)."""
-    if not SLACK_BOT_TOKEN:
+    """Send a plain-text DM to whoever is set in SLACK_USER_ID secret (2FA prompts etc.)."""
+    if not SLACK_BOT_TOKEN or not CCL_NOTIFY_CHANNEL:
         print(f"[slack-ccl] Not configured — skipping: {message}")
         return
     try:
